@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="description" content="Custom Work and Rest Exercise Interval Timer">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<title>Exercise Timer</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#1e293b,#0b1220 55%);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#f8fafc;display:flex;justify-content:center;padding:20px}.app{width:min(520px,100%);margin:auto;background:rgba(17,24,39,.94);border:1px solid rgba(255,255,255,.08);border-radius:28px;padding:24px;box-shadow:0 24px 70px #0008}h1{text-align:center;margin:0;font-size:28px}.sub{text-align:center;color:#94a3b8;margin:6px 0 24px}.phase{text-align:center;font-size:24px;font-weight:900;letter-spacing:3px}.work{color:#22c55e}.rest{color:#38bdf8}.timer{text-align:center;font-size:104px;line-height:1;font-weight:900;font-variant-numeric:tabular-nums;margin:18px 0}.round{text-align:center;color:#cbd5e1;font-size:17px;margin-bottom:18px}.bar{height:10px;background:#263244;border-radius:99px;overflow:hidden}.fill{height:100%;width:0;background:#22c55e;transition:width .2s linear}.controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:22px 0}button{border:0;border-radius:14px;padding:14px 10px;color:#fff;font-weight:800;font-size:15px;cursor:pointer}.start{background:#22c55e}.pause{background:#f59e0b}.reset{background:#ef4444}.settings{margin-top:20px;padding:18px;border-radius:20px;background:#0f172a;border:1px solid #263244}.settings h2{font-size:18px;margin:0 0 15px}.row{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:center;margin:12px 0}.row input{width:100%;padding:11px;border-radius:11px;border:1px solid #475569;background:#111827;color:#fff;text-align:center;font-size:16px}label{color:#e2e8f0}.preset{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.preset button{background:#334155;font-size:13px;padding:10px 12px}.status{text-align:center;color:#94a3b8;min-height:24px;margin-top:16px;font-size:14px}.save{text-align:center;color:#64748b;font-size:12px;margin-top:10px}.install{display:none;width:100%;margin-top:14px;background:#8b5cf6}@media(max-width:480px){.app{padding:20px 16px}.timer{font-size:82px}}
+</style>
+</head>
+<body>
+<main class="app">
+<h1>🏋️ Exercise Timer</h1><div class="sub">Customize your workout</div>
+<div id="phase" class="phase work">WORK</div>
+<div id="timer" class="timer">20</div>
+<div id="round" class="round">Round 1 / 8</div>
+<div class="bar"><div id="fill" class="fill"></div></div>
+<div class="controls"><button class="start" id="startBtn">▶ Start</button><button class="pause" id="pauseBtn">⏸ Pause</button><button class="reset" id="resetBtn">↻ Reset</button></div>
+<section class="settings">
+<h2>⚙️ Customize Timer</h2>
+<div class="row"><label>Work (seconds)</label><input id="work" type="number" min="1" max="3600" value="20"></div>
+<div class="row"><label>Rest (seconds)</label><input id="rest" type="number" min="1" max="3600" value="10"></div>
+<div class="row"><label>Rounds</label><input id="rounds" type="number" min="1" max="999" value="8"></div>
+<div class="preset">
+<button data-w="20" data-r="10" data-n="8">20/10 × 8</button><button data-w="30" data-r="10" data-n="8">30/10 × 8</button><button data-w="40" data-r="20" data-n="10">40/20 × 10</button><button data-w="60" data-r="30" data-n="10">60/30 × 10</button>
+</div>
+</section>
+<button id="installBtn" class="install">📲 Install App</button>
+<div id="status" class="status">Ready — अपनी settings चुनें</div><div class="save">Settings इस device के browser में automatically save होती हैं.</div>
+</main>
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js"))}
+const $=id=>document.getElementById(id),wi=$("work"),ri=$("rest"),ni=$("rounds"),phaseEl=$("phase"),timerEl=$("timer"),roundEl=$("round"),fillEl=$("fill"),statusEl=$("status");
+let work=20,rest=10,totalRounds=8,currentRound=1,phase="work",remaining=20,interval=null,running=false,audioCtx=null;
+function read(){work=Math.max(1,Math.min(3600,+wi.value||20));rest=Math.max(1,Math.min(3600,+ri.value||10));totalRounds=Math.max(1,Math.min(999,+ni.value||8))}
+function save(){read();localStorage.setItem("exerciseTimerSettings",JSON.stringify({work,rest,totalRounds}))}
+function load(){try{let s=JSON.parse(localStorage.getItem("exerciseTimerSettings"));if(s){wi.value=s.work??20;ri.value=s.rest??10;ni.value=s.totalRounds??8}}catch(e){}read()}
+function fmt(s){s=Math.max(0,Math.ceil(s));let m=Math.floor(s/60),x=s%60;return m?`${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}`:String(x).padStart(2,"0")}
+function update(){timerEl.textContent=fmt(remaining);phaseEl.textContent=phase==="work"?"WORK":"REST";phaseEl.className="phase "+phase;roundEl.textContent=`Round ${currentRound} / ${totalRounds}`;let t=phase==="work"?work:rest;fillEl.style.width=Math.max(0,Math.min(100,(t-remaining)/t*100))+"%";fillEl.style.background=phase==="work"?"#22c55e":"#38bdf8";document.title=`${fmt(remaining)} • ${phase.toUpperCase()}`}
+function beep(f=800,d=.16){try{audioCtx ||= new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=f;g.gain.setValueAtTime(.18,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+d);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
+function finishSound(){beep(600,.15);setTimeout(()=>beep(800,.15),180);setTimeout(()=>beep(1000,.25),360)}
+function next(){beep(phase==="work"?650:900,.2);if(phase==="work"){phase="rest";remaining=rest;statusEl.textContent="आराम करें…"}else{if(currentRound>=totalRounds){finish();return}currentRound++;phase="work";remaining=work;statusEl.textContent="Exercise शुरू करें!"}update()}
+function tick(){remaining--;if(remaining<=0)next();else update()}
+function start(){if(running)return;save();if(remaining<=0){currentRound=1;phase="work";remaining=work}running=true;statusEl.textContent=phase==="work"?"Exercise चल रही है…":"आराम चल रहा है…";beep(phase==="work"?800:500,.12);interval=setInterval(tick,1000);update()}
+function pause(){if(!running)return;clearInterval(interval);interval=null;running=false;statusEl.textContent="Timer paused";update()}
+function reset(){clearInterval(interval);interval=null;running=false;save();currentRound=1;phase="work";remaining=work;statusEl.textContent="Ready — अपनी settings चुनें";update()}
+function finish(){clearInterval(interval);interval=null;running=false;remaining=0;phaseEl.textContent="DONE 🎉";phaseEl.className="phase work";timerEl.textContent="00:00";roundEl.textContent=`Completed ${totalRounds} / ${totalRounds} rounds`;fillEl.style.width="100%";statusEl.textContent="Workout Complete! शानदार काम!";document.title="Workout Complete 🎉";finishSound()}
+$("startBtn").onclick=start;$("pauseBtn").onclick=pause;$("resetBtn").onclick=reset;
+[wi,ri,ni].forEach(x=>x.addEventListener("change",()=>{save();if(!running)reset()}));
+document.querySelectorAll(".preset button").forEach(b=>b.onclick=()=>{wi.value=b.dataset.w;ri.value=b.dataset.r;ni.value=b.dataset.n;reset()});
+let deferredPrompt;const installBtn=$("installBtn");
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;installBtn.style.display="block"});
+installBtn.onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt=null;installBtn.style.display="none"};
+window.addEventListener("appinstalled",()=>{installBtn.style.display="none";statusEl.textContent="App installed successfully ✓"});
+load();remaining=work;update();
+</script>
+</body>
+</html>
